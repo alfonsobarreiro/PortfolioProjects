@@ -1,0 +1,285 @@
+SELECT
+  *
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+WHERE
+  continent IS NOT NULL
+ORDER BY
+  3,4;
+
+/* SELECT
+  *
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_vaccinations`
+ORDER BY
+  3,4 */
+
+SELECT
+  location,
+  date,
+  total_cases,
+  new_cases,
+  total_deaths,
+  population
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+ORDER BY
+  1,2;
+
+-- Looking at Total Cases vs Total 
+-- Shows the likelihood of dying if you contract Covid in your country
+
+SELECT
+  SUM(total_cases) AS total_cases,
+  SUM(total_deaths) AS total_deaths
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+ORDER BY
+  1,2;
+
+SELECT
+  location,
+  date,
+  total_cases,
+  total_deaths,
+  (total_deaths/total_cases)*100 AS death_percentage
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+WHERE
+  location = "United States"
+ORDER BY
+  1,2;
+
+-- Looking at Total Cases vs Population
+-- Show what percentage of the polpulation get Covid
+
+SELECT
+  location,
+  date,
+  population,
+  total_cases,
+  (total_cases/population)*100 AS death_percentage
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+WHERE
+  location = "United States"
+ORDER BY
+  1,2;
+
+-- Looking at Countries with Highest Infections Rate compared to Population
+
+SELECT
+  location,
+  population,
+  MAX(total_cases) AS highest_infection_count,
+  MAX((total_cases/population)*100) AS percent_of_polutation_infected
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+-- WHERE
+  -- location LIKE '%States%'
+GROUP BY
+  location, population
+ORDER BY
+  percent_of_polutation_infected DESC;
+
+
+-- Showing Countries with Highest Death Rates per Population
+
+SELECT
+  location,
+  MAX(total_deaths) AS total_death_count
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+WHERE
+  continent IS NOT NULL
+GROUP BY
+  location
+ORDER BY
+  total_death_count DESC;
+
+
+-- Let's break things down by Continent
+
+SELECT
+  location,
+  MAX(total_deaths) AS total_death_count
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+WHERE
+  continent IS NULL
+GROUP BY
+  location
+ORDER BY
+  total_death_count DESC;
+
+SELECT
+  continent,
+  MAX(total_deaths) AS total_death_count
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+WHERE
+  continent IS NOT NULL
+GROUP BY
+  continent
+ORDER BY
+  total_death_count DESC;
+
+-- Showing the Continents with the Highest Deat counth per Population
+
+-- Gloabl Numbers
+-- By Date
+
+SELECT
+  date,
+  SUM(new_cases) AS total_cases,
+  SUM(new_deaths) AS total_deaths,
+  SUM(new_deaths)/SUM(new_cases)*100 as death_percentage
+  -- total_deaths,
+  -- (total_deaths/total_cases)*100 as death_percentage
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+WHERE
+  continent IS NOT NULL
+GROUP By
+  date
+ORDER BY
+  1, 2;
+
+
+-- Total
+
+SELECT
+  SUM(new_cases) AS total_cases,
+  SUM(new_deaths) AS total_deaths,
+  SUM(new_deaths)/SUM(new_cases)*100 as death_percentage
+  -- total_deaths,
+  -- (total_deaths/total_cases)*100 as death_percentage
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths`
+WHERE
+  continent IS NOT NULL
+ORDER BY
+  1, 2;
+
+-- Lookiung at Total Population vs Vaccinations
+
+SELECT
+  dea.continent,
+  dea.location,
+  dea.date,
+  dea.population,
+  vac.new_vaccinations,
+  SUM(new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS rolling_people_vaccinated,
+  (rolling_people_vaccinated/population)*100
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths` AS dea
+JOIN
+  `covid-deaths-374417.PortfolioProjects.covid_vaccinations` AS vac
+ON
+  dea.location = vac.location
+AND
+  dea.date = vac.date
+WHERE
+  dea.continent IS NOT NULL
+ORDER BY
+  2,3;
+
+
+-- USE CTE - doesn't work in BigQuery
+
+WITH
+  PopvsVac
+AS
+(
+SELECT
+  dea.continent,
+  dea.location,
+  dea.date,
+  dea.population,
+  vac.new_vaccinations,
+  SUM(new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS rolling_people_vaccinated
+  -- (rolling_people_vaccinated/population)*100
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths` AS dea
+JOIN
+  `covid-deaths-374417.PortfolioProjects.covid_vaccinations` AS vac
+ON
+  dea.location = vac.location
+AND
+  dea.date = vac.date
+WHERE
+  dea.continent IS NOT NULL
+-- ORDER BY
+  -- 2,3
+)
+SELECT
+  *, (rolling_people_vaccinated/population)*100
+FROM
+  PopvsVac;
+
+-- Temp Table
+
+DROP TABLE IF EXISTS covid-deaths-374417.PortfolioProjects.PercentPopulationVaccinated;
+
+CREATE TABLE covid-deaths-374417.PortfolioProjects.PercentPopulationVaccinated
+(
+  continent STRING, 
+  location STRING,
+  date DATE,
+  population NUMERIC,
+  new_vaccinations NUMERIC,
+  rolling_people_vaccinated NUMERIC
+);
+
+INSERT INTO covid-deaths-374417.PortfolioProjects.PercentPopulationVaccinated
+SELECT
+  dea.continent,
+  dea.location,
+  dea.date,
+  dea.population,
+  vac.new_vaccinations,
+  SUM(new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS rolling_people_vaccinated
+  -- (rolling_people_vaccinated/population)*100
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths` AS dea
+JOIN
+  `covid-deaths-374417.PortfolioProjects.covid_vaccinations` AS vac
+ON
+  dea.location = vac.location
+AND
+  dea.date = vac.date;
+-- WHERE
+  -- dea.continent IS NOT NULL;
+--ORDER BY
+  --2,3;
+
+SELECT
+  *, (rolling_people_vaccinated/population)*100
+FROM
+  covid-deaths-374417.PortfolioProjects.PercentPopulationVaccinated;
+
+
+-- Creating View to store data for later visualizations
+
+DROP TABLE IF EXISTS covid-deaths-374417.PortfolioProjects.PercentPopulationVaccinated;
+Create VIEW covid-deaths-374417.PortfolioProjects.PercentPopulationVaccinated AS
+SELECT
+  dea.continent,
+  dea.location,
+  dea.date,
+  dea.population,
+  vac.new_vaccinations,
+  SUM(new_vaccinations) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) AS rolling_people_vaccinated
+  --, (rolling_people_vaccinated/population)*100
+FROM
+  `covid-deaths-374417.PortfolioProjects.covid_deaths` AS dea
+JOIN
+  `covid-deaths-374417.PortfolioProjects.covid_vaccinations` AS vac
+ON
+  dea.location = vac.location
+AND
+  dea.date = vac.date
+WHERE
+  dea.continent IS NOT NULL
+--ORDER BY
+  --2,3;
